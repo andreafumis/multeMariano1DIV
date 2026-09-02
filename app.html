@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro Multe di Squadra</title>
+<link rel="icon" type="image/jpeg" href="icon.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<!-- Supabase Client JS SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --paper:#0f172a;
+    --paper-card:#1e293b;
+    --paper-dark:#334155;
+    --ink:#ffffff;
+    --ink-soft:#cbd5e1;
+    --ink-faint:#94a3b8;
+    --line:#334155;
+    --gold:#dc2626;
+    --gold-soft:#ef4444;
+    --red:#dc2626;
+    --red-soft:#ef4444;
+    --red-bg:rgba(220, 38, 38, 0.15);
+    --shadow: 0 10px 30px -12px rgba(0,0,0,0.5);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      linear-gradient(rgba(15,23,42,0.93), rgba(15,23,42,0.93)) center / 100% 100% no-repeat fixed,
+      radial-gradient(1200px 600px at 10% -10%, rgba(184,145,43,0.10), transparent 60%),
+      radial-gradient(1000px 500px at 110% 10%, rgba(140,47,38,0.08), transparent 55%),
+      url('icon.jpg') center / 100% 100% no-repeat fixed,
+      var(--paper);
+    color:var(--ink);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+    font-family: 'Montserrat', sans-serif;
+  }
+  
+  .display, h1, h2, h3 { 
+    font-family: 'Montserrat', sans-serif; 
+    font-weight: 700; 
+  }
+  .mono{font-family:'JetBrains Mono',monospace;}
+  #app{max-width:920px;margin:0 auto;padding:20px 18px 60px;}
+
+  .login-screen{min-height:80vh;display:flex;align-items:center;justify-content:center;position:relative;}
+  .login-card{
+    background:var(--paper-card);border:1px solid var(--line);box-shadow:var(--shadow);
+    border-radius:6px;padding:40px 36px;max-width:420px;width:100%;text-align:center;position:relative;z-index:1;
+  }
+  .login-card .seal{width:76px;height:76px;margin:0 auto 14px;}
+  .login-card h1{font-size:1.6rem;margin:0 0 4px;letter-spacing:0.01em;}
+  .login-card .eyebrow{text-transform:uppercase;letter-spacing:0.16em;font-size:0.7rem;color:var(--red);font-weight:600;margin-bottom:8px;}
+  .login-card p.desc{color:var(--ink-soft);font-size:0.9rem;line-height:1.5;margin:10px 0 24px;}
+  .login-actions{display:flex;flex-direction:column;gap:10px;}
+  .hint{font-size:0.72rem;color:var(--ink-faint);margin-top:18px;font-family:'JetBrains Mono',monospace;}
+
+ input[type=text], input[type=number], input[type=password], select, textarea{
+    font-family:'Montserrat',sans-serif;background:var(--paper-card);border:1px solid var(--line);border-radius:4px;padding:10px 12px;font-size:0.92rem;color:var(--ink);width:100%;
+  }
+  input:focus, select:focus, textarea:focus{outline:2px solid var(--gold-soft);outline-offset:1px;border-color:var(--gold);}
+  label { font-family: 'Montserrat', sans-serif; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); font-weight: 600; display: block; margin-bottom: 5px; }   .field{margin-bottom:14px;text-align:left;}
+
+  button{
+    font-family:'Montserrat',sans-serif;font-weight:600;font-size:0.88rem;border-radius:4px;border:1px solid var(--ink);
+    padding:11px 18px;cursor:pointer;background:var(--ink);color:var(--paper-card);transition:transform .12s ease, box-shadow .12s ease;
+  }
+  button:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(28,43,34,0.25);}
+  button:active{transform:translateY(0);}
+  button.secondary{background:transparent;color:var(--ink);border:1px solid var(--ink);}
+  button.danger{background:var(--red);border-color:var(--red);color:#fff;}
+  button.gold{background:var(--gold);border-color:var(--gold);color:var(--ink);}
+  button:disabled{opacity:0.45;cursor:not-allowed;transform:none;box-shadow:none;}
+  button.small{padding:6px 10px;font-size:0.76rem;border-radius:3px;}
+
+  .letterhead{display:flex;align-items:center;gap:16px;border-bottom:3px double var(--ink);padding-bottom:16px;margin-bottom:6px;}
+  .letterhead .crest{width:56px;height:56px;flex:none;}
+  .letterhead .titles{flex:1;min-width:0;}
+  .letterhead .eyebrow{text-transform:uppercase;letter-spacing:0.18em;font-size:0.66rem;color:var(--red);font-weight:700;margin:0 0 2px;}
+  .letterhead h1{font-size:1.5rem;margin:0;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .letterhead .subtitle{margin:2px 0 0;font-size:0.78rem;color:var(--ink-soft);font-style:italic;}
+  .role-chip{flex:none;text-align:right;}
+  .role-chip .badge{display:inline-block;padding:4px 10px;border-radius:20px;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;}
+  .badge.senato{background:var(--red-bg);color:var(--red);border:1px solid var(--red-soft);}
+  .badge.giocatore{background:#e5e9dd;color:var(--ink-soft);border:1px solid var(--line);}
+  .logout-link{display:block;background:none;border:none;color:var(--ink-faint);font-size:0.72rem;text-decoration:underline;padding:0;cursor:pointer;font-family:'Montserrat',sans-serif;font-weight:500;}
+  .logout-link:hover{transform:none;box-shadow:none;color:var(--ink);}
+
+  .tabs{display:flex;gap:4px;margin:18px 0 0;flex-wrap:wrap;}
+  .tab{font-family:'Montserrat',sans-serif;font-weight:600;font-size:0.88rem;padding:9px 16px 8px;background:var(--paper-dark);border:1px solid var(--line);border-bottom:none;border-radius:6px 6px 0 0;cursor:pointer;color:var(--ink-soft);position:relative;top:1px;}
+  .tab.active{background:var(--paper-card);color:var(--ink);border-color:var(--ink);}
+  .tab:hover:not(.active){color:var(--ink);}
+
+  .panel{background:var(--paper-card);border:1px solid var(--ink);border-radius:0 6px 6px 6px;padding:26px 24px;box-shadow:var(--shadow);min-height:340px;}
+  .panel h2{font-size:1.15rem;margin:0 0 4px;}
+  .panel .panel-desc{color:var(--ink-soft);font-size:0.84rem;margin:0 0 20px;}
+
+  .player-row{padding:12px 0;border-top:1px solid var(--line);}
+  .player-row:first-of-type{border-top:none;}
+  .player-main{display:flex;align-items:center;gap:12px;}
+  .avatar{width:38px;height:38px;border-radius:50%;background:var(--ink);color:var(--paper-card);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex:none;font-family:'Montserrat',sans-serif;}
+  .player-info{flex:1;min-width:0;}
+  .player-info .pname{font-weight:600;font-size:0.94rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .player-info .pnum{color:var(--ink-faint);font-size:0.76rem;font-family:'JetBrains Mono',monospace;}
+  .senato-tag{display:inline-block;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.04em;background:var(--red-bg);color:var(--red);padding:2px 6px;border-radius:3px;font-weight:700;border:1px solid var(--red-soft);}
+  .player-total{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:0.95rem;flex:none;}
+  .player-admin-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding-left:50px;}
+  .senato-toggle{display:flex;align-items:center;gap:6px;flex:none;font-size:0.72rem;color:var(--ink-soft);white-space:nowrap;}
+  .senato-toggle input[type=checkbox]{accent-color:var(--red);width:15px;height:15px;}
+  .add-player-form{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:flex-end;padding-bottom:18px;border-bottom:1px dashed var(--line);}
+  .add-player-form .field{margin-bottom:0;flex:1;min-width:120px;}
+  .checkbox-field{display:flex;align-items:center;gap:8px;margin-bottom:0;}
+  .checkbox-field input[type=checkbox]{width:auto;flex:none;accent-color:var(--red);width:16px;height:16px;}
+  .checkbox-field label{margin:0;text-transform:none;font-size:0.82rem;letter-spacing:normal;color:var(--ink);white-space:nowrap;}
+  .empty-state{text-align:center;padding:36px 10px;color:var(--ink-faint);font-style:italic;font-size:0.9rem;}
+
+  .fine-preview{background:var(--paper);border:1px dashed var(--gold);border-radius:5px;padding:14px 16px;margin:6px 0 20px;display:flex;justify-content:space-between;align-items:center;}
+  .fine-preview .flabel{font-size:0.82rem;color:var(--ink-soft);}
+  .fine-preview .ftotal{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:1.3rem;color:var(--red);}
+  .fine-preview .fdoubled{display:block;font-size:0.7rem;color:var(--red-soft);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;}
+  optgroup{font-family:'Montserrat',sans-serif;font-weight:700;font-size:0.8rem;}
+
+  table{width:100%;border-collapse:collapse;font-size:0.86rem;}
+  thead th{text-align:left;text-transform:uppercase;font-size:0.66rem;letter-spacing:0.06em;color:var(--ink-faint);border-bottom:2px solid var(--ink);padding:0 8px 8px;font-weight:700;}
+  tbody td{padding:10px 8px;border-top:1px solid var(--line);vertical-align:top;}
+  tbody tr:hover{background:rgba(184,145,43,0.06);}
+  td.num, th.num{text-align:right;}
+  .protocollo{color:var(--ink-faint);font-size:0.78rem;}
+  .amt{font-family:'JetBrains Mono',monospace;font-weight:700;}
+  .amt.red{color:var(--red);}
+  .note-cell{color:var(--ink-soft);font-style:italic;font-size:0.82rem;max-width:220px;}
+  .match-tag{display:inline-block;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.04em;background:var(--red-bg);color:var(--red);padding:2px 6px;border-radius:3px;margin-left:6px;font-weight:700;}
+  .filter-row{display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap;}
+  .filter-row select{width:auto;min-width:170px;}
+  .table-scroll{overflow-x:auto;}
+
+  .rank-row{display:flex;align-items:center;gap:14px;padding:12px 0;border-top:1px solid var(--line);}
+  .rank-row:first-of-type{border-top:none;}
+  .rank-num{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.3rem;color:var(--ink-faint);width:28px;text-align:center;flex:none;}
+  .rank-row.top .rank-num{color:var(--red);}
+  .rank-body{flex:1;min-width:0;}
+  .rank-name-line{display:flex;justify-content:space-between;font-size:0.92rem;margin-bottom:5px;}
+  .rank-name-line .rname{font-weight:700;}
+  .rank-name-line .rtotal{font-family:'JetBrains Mono',monospace;font-weight:700;}
+  .bar-track{background:var(--paper-dark);border-radius:3px;height:7px;overflow:hidden;}
+  .bar-fill{height:100%;background:linear-gradient(90deg, var(--gold), var(--red));border-radius:3px;}
+  .team-total-banner{background:var(--ink);color:var(--paper-card);border-radius:5px;padding:16px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;}
+  .team-total-banner .ttl{font-size:0.78rem;text-transform:uppercase;letter-spacing:0.1em;opacity:0.75;}
+  .team-total-banner .tval{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:700;color:var(--gold-soft);}
+
+  .settings-block{padding:18px 0;border-top:1px dashed var(--line);}
+  .settings-block:first-of-type{border-top:none;padding-top:0;}
+  .settings-block h3{font-size:0.95rem;margin:0 0 4px;}
+  .settings-block .subtext{font-size:0.78rem;color:var(--ink-soft);margin:0 0 12px;}
+  .inline-form{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+  .inline-form .field{flex:1;min-width:140px;margin-bottom:0;}
+  .fine-catalog-row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;padding:14px 0;border-top:1px solid var(--line);font-size:0.84rem;}
+  .fine-catalog-row:first-of-type{border-top:none;padding-top:0;}
+  .fine-catalog-row .field{margin-bottom:0;}
+  .fine-catalog-row .f-label{flex:2;min-width:200px;}
+  .fine-catalog-row .f-kind{flex:1;min-width:170px;}
+  .fine-catalog-row .f-amount{flex:0 0 100px;}
+  .fine-catalog-row .f-qtylabel{flex:1;min-width:160px;}
+  .fine-catalog-row .checkbox-field{flex:0 0 auto;}
+  .fine-catalog-row .amount-unit{font-size:0.72rem;color:var(--ink-faint);display:block;margin-top:3px;}
+  .reorder-btns{display:flex;flex-direction:column;gap:3px;flex:none;}
+  .reorder-btns button{padding:2px 9px;font-size:0.68rem;line-height:1.4;}
+  .new-fine-form{padding-bottom:18px;margin-bottom:4px;border-bottom:1px dashed var(--line);}
+
+  .toast-wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(28,43,34,0.35);z-index:50;}
+  .toast-card{background:var(--paper-card);border:1px solid var(--ink);border-radius:6px;padding:32px 40px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.35);animation:pop .35s cubic-bezier(.2,1.6,.4,1);}
+  @keyframes pop{from{transform:scale(0.6) rotate(-8deg);opacity:0;}to{transform:scale(1) rotate(0);opacity:1;}}
+  .toast-card .seal{width:90px;height:90px;margin:0 auto 12px;}
+  .toast-card h3{margin:0 0 4px;font-size:1.1rem;}
+  .toast-card p{margin:0 0 18px;color:var(--ink-soft);font-size:0.85rem;}
+
+  @media (max-width:600px){
+    .letterhead{flex-wrap:wrap;}
+    .role-chip{order:3;width:100%;text-align:left;margin-top:8px;}
+    .panel{padding:18px 14px;}
+    table thead{display:none;}
+    tbody tr{display:block;border-top:2px solid var(--ink);padding:10px 0;}
+    tbody td{display:flex;justify-content:space-between;border:none;padding:4px 2px;}
+    tbody td.note-cell{display:block;max-width:none;}
+    tbody td::before{content:attr(data-label);font-weight:700;color:var(--ink-faint);font-size:0.7rem;text-transform:uppercase;margin-right:10px;}
+    .player-main{flex-wrap:wrap;}
+    .player-total{margin-left:50px;}
+    .player-admin-controls{padding-left:0;margin-left:0;}
+    .fine-catalog-row .reorder-btns{order:-1;}
+  }
+
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+(function(){
+
+  // INSERISCI QUI LE SUE CREDENZIALI DI SUPABASE
+  const SUPABASE_URL = 'https://gviwulavyornnhnmpmxa.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_8M6ettDVzRBrmeUY7dcj2Q_wfjvNcTJ';
+
+  const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  function sealSvg(size){
+    /*return `<svg viewBox="0 0 100 100" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="#8c2f26" stroke-width="3" stroke-dasharray="5 4"/>
+      <circle cx="50" cy="50" r="37" fill="none" stroke="#8c2f26" stroke-width="1.5"/>
+      <text x="50" y="43" text-anchor="middle" font-family="Montserrat, serif" font-size="9" font-weight="700" fill="#8c2f26" letter-spacing="1">SENATO</text>
+      <text x="50" y="68" text-anchor="middle" font-family="Montserrat, serif" font-size="30" font-weight="700" fill="#8c2f26">€</text>
+    </svg>`;*/
+    return `<img src="icon.jpg" style="width:${size}px; height:${size}px; border-radius:50%; object-fit:cover; border:2px solid var(--ink);">`;
+  }
+
+  const DEFAULT_FINE_TYPES = [
+    {id:'ritardo', label:'Ritardo in allenamento o partita (5 min di tolleranza)', unit:'minuti', amount:1, matchOnly:false, qtyLabel:'Minuti di ritardo'},
+    {id:'oggetti_palestra', label:'Dimenticanza in palestra di oggetti', unit:'oggetti', amount:2, matchOnly:false},
+    {id:'abbigliamento_all', label:"Dimenticanza di abbigliamento/attrezzatura per l'allenamento", unit:'oggetti', amount:1, matchOnly:false},
+    {id:'cavolata', label:'Grande cavolata a discrezione del Senato', unit:'fisso', amount:2, matchOnly:false},
+    {id:'altre_sanzioni', label:'Altre sanzioni indicate dal Senato (stizza, cellulare, ecc.)', unit:'fisso', amount:2, matchOnly:false},
+    {id:'spogliatoio', label:'Condotta negli spogliatoi e igiene (niente doccia)', unit:'fisso', amount:2, matchOnly:false},
+    {id:'telefono', label:'Utilizzo del telefono (ogni sguardo allo schermo)', unit:'minuti', amount:1, matchOnly:false, qtyLabel:'Minuti consecutivi di utilizzo (lascia 1 per un semplice sguardo)'},
+    {id:'documento', label:'Dimenticanza documento', unit:'fisso', amount:5, matchOnly:true},
+    {id:'abbigliamento_partita', label:'Abbigliamento sbagliato', unit:'oggetti', amount:2, matchOnly:true},
+    {id:'battuta_rete', label:'Battuta sotto rete', unit:'fisso', amount:2, matchOnly:true},
+    {id:'giallo', label:'Cartellino giallo', unit:'fisso', amount:10, matchOnly:true},
+    {id:'rosso', label:'Cartellino rosso', unit:'fisso', amount:20, matchOnly:true},
+  ];
+
+  function defaultState(){
+    return {
+      teamName:'Intrepida Mariano',
+      pin:'2026',
+      players:[],
+      fineTypes: DEFAULT_FINE_TYPES,
+      records:[],
+      nextProtocollo:1
+    };
+  }
+
+  let STATE = null;
+  let ROLE = null; 
+  let TAB = 'squadra';
+
+  function uid(){ return Math.random().toString(36).slice(2,10); }
+  function euro(n){ return '€ ' + n.toFixed(2).replace('.',','); }
+
+  async function loadState(){
+    try{
+      const { data, error } = await _supabase.from('registro').select('data').eq('id', 'app_state').single();
+      if(error || !data || !data.data || Object.keys(data.data).length === 0){
+        const def = defaultState();
+        await _supabase.from('registro').upsert({ id: 'app_state', data: def });
+        return def;
+      }
+      return data.data;
+    }catch(e){
+      console.error('Errore lettura Cloud', e);
+      return defaultState();
+    }
+  }
+
+  async function saveState(){
+    try{
+      await _supabase.from('registro').upsert({ id: 'app_state', data: STATE });
+    }catch(e){
+      console.error('Errore salvataggio Cloud', e);
+      alert('Errore di connessione cloud. Riprova.');
+    }
+  }
+
+  // Sincronizzazione Realtime
+  function subscribeRealtime(){
+    _supabase.channel('public:registro')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'registro', filter: 'id=eq.app_state' }, payload => {
+        if(payload.new && payload.new.data && Object.keys(payload.new.data).length){
+          STATE = payload.new.data;
+          render();
+        }
+      })
+      .subscribe();
+  }
+
+  function initials(name){ return name.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+  function fineTypeById(id){ return STATE.fineTypes.find(f=>f.id===id); }
+  function playerById(id){ return STATE.players.find(p=>p.id===id); }
+
+  // Calcola l'importo di un verbale in base allo stato ATTUALE di Senato del giocatore
+  // (non a quello che aveva quando la multa e' stata registrata). Cosi', se un giocatore
+  // viene reso o tolto dal Senato, tutti i suoi verbali si raddoppiano/dimezzano da soli,
+  // ovunque venga mostrato il totale, in tempo reale su tutte le schede collegate.
+  function recordAmounts(r){
+    if(r.manualTotal !== undefined && r.manualTotal !== null){
+      return { base:r.manualTotal, total:r.manualTotal, doubled:false, matchdayDouble:false, manual:true };
+    }
+    // Compatibilita' con verbali salvati prima di questa modifica (avevano solo total+doubled fissi)
+    const base = (r.base !== undefined) ? r.base : (r.doubled ? r.total/2 : r.total);
+    const p = playerById(r.playerId);
+    const doubled = !!(p && p.senato);
+    const matchdayDouble = !!r.matchdayDouble;
+    let total = base;
+    if(matchdayDouble) total *= 2;
+    if(doubled) total *= 2;
+    return { base, total, doubled, matchdayDouble, manual:false };
+  }
+
+  function playerTotal(playerId){
+    return STATE.records.filter(r=>r.playerId===playerId).reduce((s,r)=>s+recordAmounts(r).total, 0);
+  }
+
+  // Ricarica lo stato più recente dal cloud PRIMA di applicare una modifica, così due schede
+  // aperte insieme non si sovrascrivono a vicenda (causa più probabile di una multa "sparita").
+  async function refreshState(){
+    try{
+      const { data, error } = await _supabase.from('registro').select('data').eq('id', 'app_state').single();
+      if(!error && data && data.data && Object.keys(data.data).length){
+        STATE = data.data;
+      }
+    }catch(e){ console.error('Errore aggiornamento stato pre-salvataggio', e); }
+  }
+
+  function render(){
+    const app = document.getElementById('app');
+    if(!STATE){
+      app.innerHTML = `<div class="login-screen"><p class="mono" style="color:var(--ink-faint)">Connessione al registro in cloud…</p></div>`;
+      return;
+    }
+    if(!ROLE){
+      app.innerHTML = renderLogin();
+      bindLogin();
+      return;
+    }
+    app.innerHTML = renderShell();
+    bindShell();
+  }
+
+  function renderLogin(){
+    return `
+    <div class="login-screen">
+      <div class="login-card">
+        <div class="seal">${sealSvg(76)}</div>
+        <p class="eyebrow">Registro Ufficiale</p>
+        <h1 class="display">${escapeHtml(STATE.teamName)}</h1>
+        <p class="desc">Verbale delle multe di squadra, tenuto a cura del Senato. Scegli come vuoi accedere.</p>
+        <div class="login-actions">
+          <button id="btn-senato" class="gold">Accedi come Senato</button>
+          <button id="btn-viewer" class="secondary">Entra come Giocatore (sola visione)</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function bindLogin(){
+    document.getElementById('btn-viewer').onclick = ()=>{ ROLE='giocatore'; TAB='squadra'; render(); };
+    document.getElementById('btn-senato').onclick = ()=>{
+      const pin = prompt('Inserisci il PIN del Senato:');
+      if(pin===null) return;
+      if(pin===STATE.pin){ ROLE='senato'; TAB='squadra'; render(); }
+      else alert('PIN errato.');
+    };
+  }
+
+  function renderShell(){
+    const isAdmin = ROLE==='senato';
+    const tabs = [
+      {id:'squadra', label:'Squadra'},
+      ...(isAdmin ? [{id:'registra', label:'Registra Multa'}] : []),
+      {id:'storico', label:'Storico'},
+      {id:'classifica', label:'Classifica'},
+      ...(isAdmin ? [{id:'impostazioni', label:'Impostazioni'}] : []),
+    ];
+    return `
+      <header class="letterhead">
+        <div class="crest">${sealSvg(56)}</div>
+        <div class="titles">
+          <p class="eyebrow">Registro Ufficiale</p>
+          <h1 class="display">${escapeHtml(STATE.teamName)}</h1>
+          <p class="subtitle">Tenuto a cura del Senato</p>
+        </div>
+        <div class="role-chip">
+          <span class="badge ${isAdmin?'senato':'giocatore'}">${isAdmin?'Senato':'Giocatore'}</span>
+          <button class="logout-link" id="btn-logout">Cambia accesso</button>
+        </div>
+      </header>
+      <nav class="tabs">
+        ${tabs.map(t=>`<div class="tab ${TAB===t.id?'active':''}" data-tab="${t.id}">${t.label}</div>`).join('')}
+      </nav>
+      <div class="panel">${renderPanel()}</div>
+    `;
+  }
+
+  function bindShell(){
+    document.getElementById('btn-logout').onclick = ()=>{ ROLE=null; render(); };
+    document.querySelectorAll('.tab').forEach(el=>{
+      el.onclick = ()=>{ TAB = el.dataset.tab; render(); };
+    });
+    bindPanel();
+  }
+
+  function renderPanel(){
+    switch(TAB){
+      case 'squadra': return renderSquadra();
+      case 'registra': return renderRegistra();
+      case 'storico': return renderStorico();
+      case 'classifica': return renderClassifica();
+      case 'impostazioni': return renderImpostazioni();
+      default: return '';
+    }
+  }
+
+  function bindPanel(){
+    switch(TAB){
+      case 'squadra': return bindSquadra();
+      case 'registra': return bindRegistra();
+      case 'storico': return bindStorico();
+      case 'classifica': return bindClassifica();
+      case 'impostazioni': return bindImpostazioni();
+    }
+  }
+
+  function renderSquadra(){
+    const isAdmin = ROLE==='senato';
+    const rows = STATE.players.map(p=>{
+      const tot = playerTotal(p.id);
+      return `<div class="player-row">
+        <div class="player-main">
+          <div class="avatar">${escapeHtml(initials(p.name))}</div>
+          <div class="player-info">
+            <div class="pname">${escapeHtml(p.name)} ${p.senato? '<span class="senato-tag">Senato ×2</span>' : ''}</div>
+            <div class="pnum">${p.number? '#'+escapeHtml(p.number) : 'nessun numero'}</div>
+          </div>
+          <div class="player-total">${euro(tot)}</div>
+        </div>
+        ${isAdmin ? `<div class="player-admin-controls">
+          <label class="senato-toggle"><input type="checkbox" data-senato-toggle="${p.id}" ${p.senato?'checked':''}> Senato</label>
+          <button class="small secondary" data-edit-player="${p.id}">Modifica</button>
+          <button class="small danger" data-remove="${p.id}">Rimuovi</button>
+        </div>` : ''}
+      </div>`;
+    }).join('');
+
+    return `
+      <h2>Componenti della squadra</h2>
+      <p class="panel-desc">Elenco dei giocatori registrati e totale multe accumulate da ciascuno. I membri del Senato pagano il doppio su ogni multa.</p>
+      ${isAdmin ? `
+      <div class="add-player-form">
+        <div class="field"><label>Nome e cognome</label><input type="text" id="new-player-name" placeholder="Es. Mario Rossi"></div>
+        <div class="field" style="flex:0 0 100px;"><label>N. maglia</label><input type="text" id="new-player-number" placeholder="7"></div>
+        <div class="checkbox-field" style="flex:0 0 auto;">
+          <input type="checkbox" id="new-player-senato">
+          <label for="new-player-senato">Membro del Senato</label>
+        </div>
+        <button id="btn-add-player" class="gold">Aggiungi giocatore</button>
+      </div>` : ''}
+      ${STATE.players.length===0 ? `<div class="empty-state">Nessun giocatore registrato ancora.${isAdmin?' Aggiungine uno qui sopra.':''}</div>` : rows}
+    `;
+  }
+
+  function bindSquadra(){
+    const isAdmin = ROLE==='senato';
+    if(isAdmin){
+      document.getElementById('btn-add-player').onclick = async ()=>{
+        const nameEl = document.getElementById('new-player-name');
+        const numEl = document.getElementById('new-player-number');
+        const senatoEl = document.getElementById('new-player-senato');
+        const name = nameEl.value.trim();
+        if(!name){ alert('Inserisci un nome.'); return; }
+        const number = numEl.value.trim();
+        const senato = senatoEl.checked;
+        await refreshState();
+        STATE.players.push({id:uid(), name, number, senato});
+        await saveState();
+        render();
+      };
+      document.querySelectorAll('[data-remove]').forEach(btn=>{
+        btn.onclick = async ()=>{
+          const id = btn.dataset.remove;
+          const p = playerById(id);
+          if(!p || !confirm(`Rimuovere ${p.name}?`)) return;
+          await refreshState();
+          STATE.players = STATE.players.filter(pl=>pl.id!==id);
+          await saveState();
+          render();
+        };
+      });
+      document.querySelectorAll('[data-edit-player]').forEach(btn=>{
+        btn.onclick = async ()=>{
+          const id = btn.dataset.editPlayer;
+          const p = playerById(id);
+          if(!p) return;
+          const newName = prompt('Nome e cognome:', p.name);
+          if(newName===null) return;
+          const trimmedName = newName.trim();
+          if(!trimmedName){ alert('Il nome non può essere vuoto.'); return; }
+          const newNumber = prompt('Numero di maglia (lascia vuoto per nessun numero):', p.number || '');
+          if(newNumber===null) return;
+          await refreshState();
+          const target = playerById(id);
+          if(!target){ alert('Questo giocatore non esiste più (forse rimosso da un\'altra scheda).'); render(); return; }
+          target.name = trimmedName;
+          target.number = newNumber.trim();
+          await saveState();
+          render();
+        };
+      });
+      document.querySelectorAll('[data-senato-toggle]').forEach(chk=>{
+        chk.onchange = async ()=>{
+          const id = chk.dataset.senatoToggle;
+          const checked = chk.checked;
+          await refreshState();
+          const p = playerById(id);
+          if(!p){ render(); return; }
+          p.senato = checked;
+          await saveState();
+          render();
+        };
+      });
+    }
+  }
+
+  function renderRegistra(){
+    if(STATE.players.length===0){
+      return `<h2>Registra multa</h2><div class="empty-state">Aggiungi prima almeno un giocatore nella scheda "Squadra".</div>`;
+    }
+    const generali = STATE.fineTypes.filter(f=>!f.matchOnly);
+    const partita = STATE.fineTypes.filter(f=>f.matchOnly);
+    const optGroup = (label, list) => `<optgroup label="${label}">${list.map(f=>`<option value="${f.id}">${escapeHtml(f.label)} — ${unitLabel(f)}</option>`).join('')}</optgroup>`;
+
+    return `
+      <h2>Registra una multa</h2>
+      <p class="panel-desc">Seleziona il giocatore, il tipo di sanzione ed eventualmente una nota.</p>
+      <div class="field">
+        <label>Giocatore</label>
+        <select id="f-player">${STATE.players.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}${p.number?' (#'+escapeHtml(p.number)+')':''}${p.senato?' — Senato ×2':''}</option>`).join('')}</select>
+      </div>
+      <div class="field">
+        <label>Tipo di multa</label>
+        <select id="f-type">
+          ${optGroup('Generali', generali)}
+          ${optGroup('Solo alla partita', partita)}
+        </select>
+      </div>
+      <div class="field" id="f-qty-wrap">
+        <label id="f-qty-label">Quantità</label>
+        <input type="number" id="f-qty" min="1" step="1" value="1">
+      </div>
+      <div class="checkbox-field" style="margin-bottom:14px;">
+        <input type="checkbox" id="f-matchday-double">
+        <label for="f-matchday-double">Raddoppia giorno partita</label>
+      </div>
+      <div class="fine-preview">
+        <span class="flabel">Totale multa<span class="fdoubled" id="f-doubled-note" style="display:none;">Raddoppiata: membro del Senato</span><span class="fdoubled" id="f-matchday-note" style="display:none;">Raddoppiata: giorno partita</span></span>
+        <span class="ftotal mono" id="f-total">€ 0,00</span>
+      </div>
+      <div class="field">
+        <label>Nota (facoltativa)</label>
+        <textarea id="f-note" rows="2" placeholder="Es. arrivato 8 minuti dopo l'inizio"></textarea>
+      </div>
+      <button id="btn-submit-fine" class="danger">Registra e timbra</button>
+    `;
+  }
+
+  function unitLabel(f){
+    if(f.unit==='fisso') return euro(f.amount)+' fisso';
+    if(f.unit==='minuti') return euro(f.amount)+'/minuto';
+    if(f.unit==='oggetti') return euro(f.amount)+'/oggetto';
+    return euro(f.amount);
+  }
+
+  function bindRegistra(){
+    if(STATE.players.length===0) return;
+    const playerSel = document.getElementById('f-player');
+    const typeSel = document.getElementById('f-type');
+    const qtyWrap = document.getElementById('f-qty-wrap');
+    const qtyLabel = document.getElementById('f-qty-label');
+    const qtyInput = document.getElementById('f-qty');
+    const totalEl = document.getElementById('f-total');
+    const doubledNote = document.getElementById('f-doubled-note');
+    const matchdayNote = document.getElementById('f-matchday-note');
+    const matchdayCheckbox = document.getElementById('f-matchday-double');
+
+    function updatePreview(){
+      const ft = fineTypeById(typeSel.value);
+      if(!ft) return;
+      if(ft.unit==='fisso'){
+        qtyWrap.style.display='none';
+        qtyInput.value=1;
+      } else {
+        qtyWrap.style.display='';
+        qtyLabel.textContent = ft.qtyLabel || (ft.unit==='minuti' ? 'Minuti' : 'Numero di oggetti');
+        if(!qtyInput.value || qtyInput.value<1) qtyInput.value=1;
+      }
+      const qty = Math.max(1, parseInt(qtyInput.value||'1',10));
+      const player = playerById(playerSel.value);
+      let total = ft.amount*qty;
+      if(matchdayCheckbox.checked) total *= 2;
+      if(player && player.senato) total *= 2;
+      totalEl.textContent = euro(total);
+      doubledNote.style.display = (player && player.senato) ? '' : 'none';
+      matchdayNote.style.display = matchdayCheckbox.checked ? '' : 'none';
+    }
+    typeSel.onchange = updatePreview;
+    qtyInput.oninput = updatePreview;
+    playerSel.onchange = updatePreview;
+    matchdayCheckbox.onchange = updatePreview;
+    updatePreview();
+
+    document.getElementById('btn-submit-fine').onclick = async ()=>{
+      const chosenTypeId = typeSel.value;
+      const chosenPlayerId = playerSel.value;
+      const chosenQtyRaw = qtyInput.value;
+      const chosenMatchdayDouble = matchdayCheckbox.checked;
+      const note = document.getElementById('f-note').value.trim();
+
+      // Ricarico lo stato più recente prima di scrivere, per non perdere multe registrate
+      // nel frattempo da un'altra scheda del Senato.
+      await refreshState();
+
+      const ft = fineTypeById(chosenTypeId);
+      const player = playerById(chosenPlayerId);
+      if(!ft || !player){
+        alert('Il tipo di multa o il giocatore selezionato non esiste più (forse rimosso da un\'altra scheda). Ricontrolla e riprova.');
+        render();
+        return;
+      }
+      const qty = ft.unit==='fisso' ? 1 : Math.max(1, parseInt(chosenQtyRaw||'1',10));
+      const base = ft.amount*qty;
+      const record = {
+        id: uid(),
+        protocollo: STATE.nextProtocollo,
+        playerId: chosenPlayerId, fineTypeId: ft.id, qty, base, note,
+        matchdayDouble: chosenMatchdayDouble,
+        date: new Date().toISOString()
+      };
+      STATE.records.unshift(record);
+      STATE.nextProtocollo += 1;
+      await saveState();
+      showStampToast(record, ft);
+    };
+  }
+
+  function showStampToast(record, ft){
+    const amt = recordAmounts(record);
+    const wrap = document.createElement('div');
+    wrap.className = 'toast-wrap';
+    wrap.innerHTML = `
+      <div class="toast-card">
+        <div class="seal">${sealSvg(90)}</div>
+        <h3 class="display">Verbale N° ${String(record.protocollo).padStart(4,'0')} registrato</h3>
+        <p>${escapeHtml(playerById(record.playerId).name)} — ${escapeHtml(ft.label)} — <strong>${euro(amt.total)}</strong>${amt.matchdayDouble? ' <span class="match-tag" style="margin-left:4px;">Partita ×2</span>' : ''}${amt.doubled? ' <span class="match-tag" style="margin-left:4px;">Senato ×2</span>' : ''}</p>
+        <button id="toast-ok" class="gold">Ho capito</button>
+      </div>`;
+    document.body.appendChild(wrap);
+    document.getElementById('toast-ok').onclick = ()=>{
+      wrap.remove();
+      render();
+    };
+  }
+
+  function renderStorico(){
+    const isAdmin = ROLE==='senato';
+    const filterVal = window.__storicoFilter || 'all';
+    const records = STATE.records.filter(r=> filterVal==='all' || r.playerId===filterVal);
+
+    const rows = records.map(r=>{
+      const p = playerById(r.playerId);
+      const ft = fineTypeById(r.fineTypeId);
+      const amt = recordAmounts(r);
+      return `<tr>
+        <td class="protocollo mono" data-label="N°">N° ${String(r.protocollo).padStart(4,'0')}</td>
+        <td data-label="Giocatore">${p? escapeHtml(p.name): '<em>rimosso</em>'}</td>
+        <td data-label="Multa">${ft? escapeHtml(ft.label): '<em>eliminata</em>'}${ft&&ft.matchOnly?'<span class="match-tag">partita</span>':''}${r.qty>1?` ×${r.qty}`:''}${amt.matchdayDouble?'<span class="match-tag">partita ×2</span>':''}${amt.doubled?'<span class="match-tag">senato ×2</span>':''}</td>
+        <td class="note-cell" data-label="Nota">${r.note? escapeHtml(r.note) : '—'}</td>
+        <td data-label="Data">${new Date(r.date).toLocaleDateString('it-IT')}</td>
+        <td class="num amt red" data-label="Importo">${euro(amt.total)}</td>
+        ${isAdmin? `<td data-label="" style="text-align:right;"><button class="small secondary" data-edit-amount="${r.id}">Importo</button> <button class="small secondary" data-del="${r.id}">Elimina</button></td>` : ''}
+      </tr>`;
+    }).join('');
+
+    return `
+      <h2>Storico multe</h2>
+      <p class="panel-desc">Tutte le sanzioni registrate.</p>
+      <div class="filter-row">
+        <label style="margin:0;">Filtra per giocatore</label>
+        <select id="filter-player">
+          <option value="all" ${filterVal==='all'?'selected':''}>Tutti</option>
+          ${STATE.players.map(p=>`<option value="${p.id}" ${filterVal===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+        </select>
+      </div>
+      ${records.length===0 ? `<div class="empty-state">Nessuna multa registrata.</div>` : `
+      <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>N°</th><th>Giocatore</th><th>Multa</th><th>Nota</th><th>Data</th><th class="num">Importo</th>${isAdmin?'<th></th>':''}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </div>`}
+    `;
+  }
+
+  function bindStorico(){
+    document.getElementById('filter-player').onchange = (e)=>{
+      window.__storicoFilter = e.target.value;
+      render();
+    };
+    if(ROLE==='senato'){
+      document.querySelectorAll('[data-edit-amount]').forEach(btn=>{
+        btn.onclick = async ()=>{
+          const targetId = btn.dataset.editAmount;
+          const current = recordAmounts(STATE.records.find(r=>r.id===targetId) || {});
+          const value = prompt('Nuovo importo (fisso: da questo momento non seguirà più il raddoppio Senato automatico):', current.total.toFixed(2).replace('.',','));
+          if(value===null) return;
+          const amount = parseFloat(value.replace(',', '.'));
+          if(!Number.isFinite(amount) || amount<0) return;
+          await refreshState();
+          const record = STATE.records.find(r=>r.id===targetId);
+          if(!record){ alert('Questo verbale non esiste più (forse eliminato da un\'altra scheda).'); render(); return; }
+          record.manualTotal = amount;
+          await saveState();
+          render();
+        };
+      });
+      document.querySelectorAll('[data-del]').forEach(btn=>{
+        btn.onclick = async ()=>{
+          if(!confirm('Eliminare questo verbale?')) return;
+          const targetId = btn.dataset.del;
+          await refreshState();
+          STATE.records = STATE.records.filter(r=>r.id!==targetId);
+          await saveState();
+          render();
+        };
+      });
+    }
+  }
+
+  function renderClassifica(){
+    const totals = STATE.players.map(p=>({p, total: playerTotal(p.id)})).sort((a,b)=>b.total-a.total);
+    const grandTotal = totals.reduce((s,t)=>s+t.total,0);
+    const max = totals.length? totals[0].total : 0;
+
+    const rows = totals.map((t,i)=>`
+      <div class="rank-row ${i<3 && t.total>0 ?'top':''}">
+        <div class="rank-num display">${i+1}</div>
+        <div class="rank-body">
+          <div class="rank-name-line"><span class="rname">${escapeHtml(t.p.name)}${t.p.senato?' <span class="senato-tag">×2</span>':''}</span><span class="rtotal">${euro(t.total)}</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${max>0? (t.total/max*100):0}%"></div></div>
+        </div>
+      </div>`).join('');
+
+    return `
+      <h2>Classifica multe</h2>
+      <p class="panel-desc">Totale accumulato da ogni giocatore.</p>
+      <div class="team-total-banner">
+        <span class="ttl">Totale cassa squadra</span>
+        <span class="tval">${euro(grandTotal)}</span>
+      </div>
+      ${totals.length===0 ? `<div class="empty-state">Nessun giocatore registrato.</div>` : rows}
+    `;
+  }
+  function bindClassifica(){}
+
+  // Etichetta leggibile per il tipo di multa (usata sia in select che come testo)
+  function kindOptionsHtml(selectedUnit){
+    const opts = [
+      {v:'fisso', l:'Multa normale (importo fisso)'},
+      {v:'minuti', l:'Multa con quantità — minuti'},
+      {v:'oggetti', l:'Multa con quantità — oggetti'},
+    ];
+    return opts.map(o=>`<option value="${o.v}" ${selectedUnit===o.v?'selected':''}>${o.l}</option>`).join('');
+  }
+
+  function amountUnitText(unit){
+    if(unit==='minuti') return '€ per minuto';
+    if(unit==='oggetti') return '€ per oggetto';
+    return '€ importo fisso';
+  }
+
+  function renderImpostazioni(){
+    const catalogRows = STATE.fineTypes.map((f,idx)=>`
+      <div class="fine-catalog-row" data-catalog-row="${f.id}">
+        <div class="reorder-btns">
+          <button type="button" class="small secondary" data-catalog-up="${f.id}" ${idx===0?'disabled':''} title="Sposta su">▲</button>
+          <button type="button" class="small secondary" data-catalog-down="${f.id}" ${idx===STATE.fineTypes.length-1?'disabled':''} title="Sposta giù">▼</button>
+        </div>
+        <div class="field f-label">
+          <label>Descrizione</label>
+          <input type="text" data-catalog-label="${f.id}" value="${escapeHtml(f.label)}">
+        </div>
+        <div class="field f-kind">
+          <label>Tipo di multa</label>
+          <select data-catalog-kind="${f.id}">${kindOptionsHtml(f.unit)}</select>
+        </div>
+        <div class="field f-amount">
+          <label>Importo</label>
+          <input type="number" min="0" step="0.5" value="${f.amount}" data-catalog-amount="${f.id}" class="mono">
+          <span class="amount-unit mono" data-catalog-amount-unit="${f.id}">${amountUnitText(f.unit)}</span>
+        </div>
+        <div class="field f-qtylabel" data-catalog-qtylabel-wrap="${f.id}" style="${f.unit==='fisso'?'display:none;':''}">
+          <label>Etichetta quantità</label>
+          <input type="text" data-catalog-qtylabel="${f.id}" value="${escapeHtml(f.qtyLabel||'')}" placeholder="Es. Minuti di ritardo">
+        </div>
+        <div class="checkbox-field">
+          <input type="checkbox" id="catalog-match-${f.id}" data-catalog-match="${f.id}" ${f.matchOnly?'checked':''}>
+          <label for="catalog-match-${f.id}">Solo alla partita</label>
+        </div>
+        <button class="small danger" data-catalog-remove="${f.id}">Rimuovi</button>
+      </div>`).join('');
+
+    return `
+      <h2>Impostazioni</h2>
+      <p class="panel-desc">Gestione riservata al Senato.</p>
+      <div class="settings-block">
+        <h3>Nome squadra</h3>
+        <div class="inline-form">
+          <div class="field"><input type="text" id="set-teamname" value="${escapeHtml(STATE.teamName)}"></div>
+          <button id="btn-save-teamname" class="secondary">Salva nome</button>
+        </div>
+      </div>
+      <div class="settings-block">
+        <h3>PIN del Senato</h3>
+        <div class="inline-form">
+          <div class="field"><label>Nuovo PIN</label><input type="text" id="set-pin" placeholder="es. 1974"></div>
+          <button id="btn-save-pin" class="secondary">Aggiorna PIN</button>
+        </div>
+      </div>
+      <div class="settings-block">
+        <h3>Tariffario multe</h3>
+        <p class="subtext">Modifica descrizione, tipo, importo e note di ogni multa, oppure rimuovila. Usa le frecce ▲▼ per riordinarle: l'ordine impostato qui è lo stesso che verrà mostrato nella scheda "Registra Multa". Una multa "normale" ha un importo fisso; una multa "con quantità" moltiplica l'importo per i minuti o gli oggetti inseriti al momento della registrazione.</p>
+        ${catalogRows || '<div class="empty-state">Nessun tipo di multa nel tariffario.</div>'}
+        <button id="btn-save-catalog" class="secondary" style="margin-top:14px;">Salva tariffario</button>
+
+        <div class="new-fine-form" style="margin-top:22px;padding-top:18px;border-top:1px dashed var(--line);">
+          <h3 style="margin-top:0;">Aggiungi tipo di multa</h3>
+          <div class="fine-catalog-row" style="border-top:none;padding-top:0;">
+            <div class="field f-label">
+              <label>Descrizione</label>
+              <input type="text" id="new-fine-label" placeholder="Es. Dimenticanza borraccia">
+            </div>
+            <div class="field f-kind">
+              <label>Tipo di multa</label>
+              <select id="new-fine-kind">${kindOptionsHtml('fisso')}</select>
+            </div>
+            <div class="field f-amount">
+              <label>Importo</label>
+              <input type="number" id="new-fine-amount" min="0" step="0.5" value="1" class="mono">
+              <span class="amount-unit mono" id="new-fine-amount-unit">${amountUnitText('fisso')}</span>
+            </div>
+            <div class="field f-qtylabel" id="new-fine-qtylabel-wrap" style="display:none;">
+              <label>Etichetta quantità</label>
+              <input type="text" id="new-fine-qtylabel" placeholder="Es. Minuti di ritardo">
+            </div>
+            <div class="checkbox-field">
+              <input type="checkbox" id="new-fine-match">
+              <label for="new-fine-match">Solo alla partita</label>
+            </div>
+            <button id="btn-add-fine" class="gold">Aggiungi tipo</button>
+          </div>
+        </div>
+      </div>
+      <div class="settings-block">
+        <h3>Backup / Ripristino</h3>
+        <div class="inline-form">
+          <button id="btn-export" class="secondary">Esporta backup (.json)</button>
+          <button id="btn-import" class="secondary">Importa backup</button>
+          <input type="file" id="import-file" accept="application/json" style="display:none;">
+        </div>
+      </div>
+      <div class="settings-block">
+        <h3>Zona pericolosa</h3>
+        <button id="btn-reset" class="danger">Azzera tutti i dati</button>
+      </div>
+    `;
+  }
+
+  function bindImpostazioni(){
+    document.getElementById('btn-save-teamname').onclick = async ()=>{
+      const v = document.getElementById('set-teamname').value.trim();
+      if(!v) return;
+      await refreshState();
+      STATE.teamName = v;
+      await saveState();
+      render();
+    };
+    document.getElementById('btn-save-pin').onclick = async ()=>{
+      const v = document.getElementById('set-pin').value.trim();
+      if(!v) return;
+      await refreshState();
+      STATE.pin = v;
+      await saveState();
+      alert('PIN aggiornato.');
+      render();
+    };
+    // Cambiando il tipo (fisso/minuti/oggetti) di una riga esistente, mostra/nasconde
+    // il campo "etichetta quantità" e aggiorna il suffisso accanto all'importo.
+    document.querySelectorAll('[data-catalog-kind]').forEach(sel=>{
+      sel.onchange = ()=>{
+        const id = sel.dataset.catalogKind;
+        const wrap = document.querySelector(`[data-catalog-qtylabel-wrap="${id}"]`);
+        const unitSpan = document.querySelector(`[data-catalog-amount-unit="${id}"]`);
+        if(wrap) wrap.style.display = sel.value==='fisso' ? 'none' : '';
+        if(unitSpan) unitSpan.textContent = amountUnitText(sel.value);
+      };
+    });
+
+    document.getElementById('btn-save-catalog').onclick = async ()=>{
+      const updates = [];
+      let invalid = false;
+      document.querySelectorAll('[data-catalog-row]').forEach(row=>{
+        const id = row.dataset.catalogRow;
+        const label = row.querySelector('[data-catalog-label]').value.trim();
+        const kind = row.querySelector('[data-catalog-kind]').value;
+        const amount = parseFloat(row.querySelector('[data-catalog-amount]').value);
+        const qtyLabel = row.querySelector('[data-catalog-qtylabel]').value.trim();
+        const matchOnly = row.querySelector('[data-catalog-match]').checked;
+        if(!label || isNaN(amount) || amount<0){ invalid = true; return; }
+        updates.push({ id, label, unit: kind, amount, qtyLabel, matchOnly });
+      });
+      if(invalid){ alert('Controlla descrizione e importo di ogni multa: non possono essere vuoti o negativi.'); return; }
+      await refreshState();
+      updates.forEach(u=>{
+        const ft = fineTypeById(u.id);
+        if(!ft) return;
+        ft.label = u.label;
+        ft.unit = u.unit;
+        ft.amount = u.amount;
+        ft.matchOnly = u.matchOnly;
+        if(u.unit==='fisso') delete ft.qtyLabel;
+        else ft.qtyLabel = u.qtyLabel || (u.unit==='minuti' ? 'Minuti' : 'Numero di oggetti');
+      });
+      await saveState();
+      alert('Tariffario aggiornato.');
+      render();
+    };
+
+    // Riordino dei tipi di multa: sposta l'elemento su o giù nell'elenco.
+    // L'ordine di STATE.fineTypes è lo stesso usato per generare le liste nella
+    // scheda "Registra Multa" (sia per le multe generali che per quelle di partita).
+    document.querySelectorAll('[data-catalog-up]').forEach(btn=>{
+      btn.onclick = async ()=>{
+        const id = btn.dataset.catalogUp;
+        await refreshState();
+        const idx = STATE.fineTypes.findIndex(f=>f.id===id);
+        if(idx>0){
+          const tmp = STATE.fineTypes[idx-1];
+          STATE.fineTypes[idx-1] = STATE.fineTypes[idx];
+          STATE.fineTypes[idx] = tmp;
+          await saveState();
+        }
+        render();
+      };
+    });
+    document.querySelectorAll('[data-catalog-down]').forEach(btn=>{
+      btn.onclick = async ()=>{
+        const id = btn.dataset.catalogDown;
+        await refreshState();
+        const idx = STATE.fineTypes.findIndex(f=>f.id===id);
+        if(idx>=0 && idx<STATE.fineTypes.length-1){
+          const tmp = STATE.fineTypes[idx+1];
+          STATE.fineTypes[idx+1] = STATE.fineTypes[idx];
+          STATE.fineTypes[idx] = tmp;
+          await saveState();
+        }
+        render();
+      };
+    });
+
+    document.querySelectorAll('[data-catalog-remove]').forEach(btn=>{
+      btn.onclick = async ()=>{
+        const id = btn.dataset.catalogRemove;
+        const ft = fineTypeById(id);
+        if(!ft) return;
+        if(!confirm(`Rimuovere "${ft.label}" dal tariffario? Le multe già registrate con questo tipo resteranno nello storico.`)) return;
+        await refreshState();
+        STATE.fineTypes = STATE.fineTypes.filter(f=>f.id!==id);
+        await saveState();
+        render();
+      };
+    });
+
+    // Aggiunta di un nuovo tipo di multa
+    const newKindSel = document.getElementById('new-fine-kind');
+    const newQtyWrap = document.getElementById('new-fine-qtylabel-wrap');
+    const newAmountUnit = document.getElementById('new-fine-amount-unit');
+    newKindSel.onchange = ()=>{
+      newQtyWrap.style.display = newKindSel.value==='fisso' ? 'none' : '';
+      newAmountUnit.textContent = amountUnitText(newKindSel.value);
+    };
+    document.getElementById('btn-add-fine').onclick = async ()=>{
+      const label = document.getElementById('new-fine-label').value.trim();
+      const kind = newKindSel.value;
+      const amount = parseFloat(document.getElementById('new-fine-amount').value);
+      const qtyLabel = document.getElementById('new-fine-qtylabel').value.trim();
+      const matchOnly = document.getElementById('new-fine-match').checked;
+      if(!label){ alert('Inserisci una descrizione per la multa.'); return; }
+      if(isNaN(amount) || amount<0){ alert('Inserisci un importo valido.'); return; }
+      const newType = { id: uid(), label, unit: kind, amount, matchOnly };
+      if(kind!=='fisso') newType.qtyLabel = qtyLabel || (kind==='minuti' ? 'Minuti' : 'Numero di oggetti');
+      await refreshState();
+      STATE.fineTypes.push(newType);
+      await saveState();
+      render();
+    };
+    document.getElementById('btn-export').onclick = ()=>{
+      const blob = new Blob([JSON.stringify(STATE,null,2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'backup-multe.json';
+      a.click();
+    };
+    document.getElementById('btn-import').onclick = ()=>{ document.getElementById('import-file').click(); };
+    document.getElementById('import-file').onchange = async (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      try{
+        const text = await file.text();
+        STATE = JSON.parse(text);
+        await saveState();
+        render();
+      }catch(err){ alert('File non valido.'); }
+    };
+    document.getElementById('btn-reset').onclick = async ()=>{
+      if(!confirm('Azzerare il registro?')) return;
+      STATE = defaultState();
+      await saveState();
+      render();
+    };
+  }
+
+  function escapeHtml(str){ return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  // Genera una favicon rotonda a partire dal logo quadrato icon.jpg, ritagliandolo
+  // su un canvas circolare e sostituendo dinamicamente il <link rel="icon">.
+  function setRoundFavicon(){
+    const img = new Image();
+    img.onload = ()=>{
+      const size = 64;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(size/2, size/2, size/2, 0, Math.PI*2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(img, 0, 0, size, size);
+      ctx.restore();
+      let link = document.querySelector("link[rel~='icon']");
+      if(!link){
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.type = 'image/png';
+      link.href = canvas.toDataURL('image/png');
+    };
+    img.onerror = ()=>{ console.warn('icon.jpg non trovato: impossibile generare la favicon rotonda.'); };
+    img.src = 'icon.jpg';
+  }
+
+  (async function boot(){
+    setRoundFavicon();
+    STATE = await loadState();
+    subscribeRealtime();
+    render();
+  })();
+
+})();
+</script>
+</body>
+</html>
