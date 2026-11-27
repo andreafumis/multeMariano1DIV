@@ -234,10 +234,8 @@
     {id:'abbigliamento_all', label:"Dimenticanza di abbigliamento/attrezzatura per l'allenamento", unit:'oggetti', amount:1, matchOnly:false},
     {id:'cavolata', label:'Grande cavolata a discrezione del Senato', unit:'fisso', amount:2, matchOnly:false},
     {id:'altre_sanzioni', label:'Altre sanzioni indicate dal Senato (stizza, cellulare, ecc.)', unit:'fisso', amount:2, matchOnly:false},
-    {id:'arroganza', label:'Arroganza', unit:'fisso', amount:2, matchOnly:false},
-    {id:'pulizia', label:'Pulizia (quando si mangia ognuno deve mettere via il suo piatto)', unit:'fisso', amount:2, matchOnly:false},
     {id:'spogliatoio', label:'Condotta negli spogliatoi e igiene (niente doccia)', unit:'fisso', amount:2, matchOnly:false},
-    {id:'telefono', label:'Utilizzo del telefono (ogni sguardo allo schermo)', unit:'minuti', amount:1, matchOnly:false, qtyLabel:'Minuti consecutivi di utilizzo (lascia vuoto per un semplice sguardo)'},
+    {id:'telefono', label:'Utilizzo del telefono (ogni sguardo allo schermo)', unit:'minuti', amount:1, matchOnly:false, qtyLabel:'Minuti consecutivi di utilizzo (lascia 1 per un semplice sguardo)'},
     {id:'documento', label:'Dimenticanza documento', unit:'fisso', amount:5, matchOnly:true},
     {id:'abbigliamento_partita', label:'Abbigliamento sbagliato', unit:'oggetti', amount:2, matchOnly:true},
     {id:'battuta_rete', label:'Battuta sotto rete', unit:'fisso', amount:2, matchOnly:true},
@@ -254,8 +252,7 @@
       records:[],
       payments:[],
       expenses:[],
-      nextProtocollo:1,
-      migrations:{ v2_pulizia_arroganza:true }
+      nextProtocollo:1
     };
   }
 
@@ -264,48 +261,7 @@
     if(!s) return s;
     if(!Array.isArray(s.payments)) s.payments = [];
     if(!Array.isArray(s.expenses)) s.expenses = [];
-    if(!Array.isArray(s.fineTypes)) s.fineTypes = DEFAULT_FINE_TYPES.map(f=>Object.assign({}, f));
-    migrateState(s);
     return s;
-  }
-
-  // Migrazione una tantum per i dati già salvati nel cloud:
-  //  - toglie "arroganza" dalla descrizione di "Altre sanzioni del Senato"
-  //  - aggiunge le multe "Arroganza" (2 €) e "Pulizia" (2 €) se non esistono
-  // Viene eseguita una sola volta (flag in s.migrations), quindi se in futuro
-  // rimuovi queste multe dal tariffario non verranno riaggiunte.
-  function migrateState(s){
-    if(!s.migrations || typeof s.migrations !== 'object') s.migrations = {};
-    if(s.migrations.v2_pulizia_arroganza) return;
-
-    const altre = s.fineTypes.find(f=>f.id==='altre_sanzioni');
-    if(altre && /arroganza/i.test(altre.label)){
-      altre.label = altre.label
-        .replace(/arroganza\s*,\s*/i, '')
-        .replace(/\s*,\s*arroganza/i, '')
-        .replace(/\s*arroganza\s*/i, ' ')
-        .replace(/\(\s+/g, '(')
-        .replace(/\s+\)/g, ')')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
-    }
-
-    const insertAfter = (afterId, type)=>{
-      if(s.fineTypes.some(f=>f.id===type.id)) return;
-      const idx = s.fineTypes.findIndex(f=>f.id===afterId);
-      if(idx>=0) s.fineTypes.splice(idx+1, 0, type);
-      else s.fineTypes.push(type);
-    };
-    insertAfter('altre_sanzioni', {id:'arroganza', label:'Arroganza', unit:'fisso', amount:2, matchOnly:false});
-    insertAfter('arroganza', {id:'pulizia', label:'Pulizia (quando si mangia ognuno deve mettere via il suo piatto)', unit:'fisso', amount:2, matchOnly:false});
-
-    const tel = s.fineTypes.find(f=>f.id==='telefono');
-    if(tel && tel.qtyLabel && /lascia 1 per/i.test(tel.qtyLabel)){
-      tel.qtyLabel = tel.qtyLabel.replace(/lascia 1 per/i, 'lascia vuoto per');
-    }
-
-    s.migrations.v2_pulizia_arroganza = true;
-    s.__migrated = true; // segnala a boot() che va salvato
   }
 
   let STATE = null;
@@ -332,7 +288,6 @@
 
   async function saveState(){
     try{
-      if(STATE && STATE.__migrated) delete STATE.__migrated;
       await _supabase.from('registro').upsert({ id: 'app_state', data: STATE });
     }catch(e){
       console.error('Errore salvataggio Cloud', e);
@@ -437,10 +392,39 @@
   function bindLogin(){
     document.getElementById('btn-viewer').onclick = ()=>{ ROLE='giocatore'; TAB='squadra'; render(); };
     document.getElementById('btn-senato').onclick = ()=>{
-      const pin = prompt('Inserisci il PIN del Senato:');
-      if(pin===null) return;
-      if(pin===STATE.pin){ ROLE='senato'; TAB='squadra'; render(); }
-      else alert('PIN errato.');
+      const wrap = document.createElement('div');
+      wrap.className = 'toast-wrap';
+      wrap.innerHTML = `
+        <div class="toast-card" style="width:min(340px,90vw);">
+          <h3 class="display">PIN del Senato</h3>
+          <p id="pin-msg">Inserisci il PIN per accedere.</p>
+          <div class="field" style="margin-bottom:14px;">
+            <input type="password" id="pin-input" inputmode="numeric" autocomplete="off" style="text-align:center;">
+          </div>
+          <div style="display:flex;gap:10px;justify-content:center;">
+            <button id="pin-cancel" class="secondary">Annulla</button>
+            <button id="pin-ok" class="gold">Accedi</button>
+          </div>
+        </div>`;
+      document.body.appendChild(wrap);
+      const input = document.getElementById('pin-input');
+      const closeKeyboard = ()=>{ input.blur(); if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); };
+      const submit = ()=>{
+        if(input.value===STATE.pin){
+          closeKeyboard();
+          wrap.remove();
+          ROLE='senato'; TAB='squadra';
+          render();
+        } else {
+          document.getElementById('pin-msg').textContent = 'PIN errato, riprova.';
+          input.value = '';
+          input.focus();
+        }
+      };
+      document.getElementById('pin-ok').onclick = submit;
+      document.getElementById('pin-cancel').onclick = ()=>{ closeKeyboard(); wrap.remove(); };
+      input.onkeydown = (e)=>{ if(e.key==='Enter') submit(); };
+      input.focus();
     };
   }
 
@@ -629,7 +613,7 @@
       </div>
       <div class="field" id="f-qty-wrap">
         <label id="f-qty-label">Quantità</label>
-        <input type="number" id="f-qty" min="1" step="1" value="" placeholder="1">
+        <input type="number" id="f-qty" min="1" step="1" value="1">
       </div>
       <div class="checkbox-field" style="margin-bottom:14px;">
         <input type="checkbox" id="f-matchday-double">
@@ -671,12 +655,13 @@
       if(!ft) return;
       if(ft.unit==='fisso'){
         qtyWrap.style.display='none';
+        qtyInput.value=1;
       } else {
         qtyWrap.style.display='';
         qtyLabel.textContent = ft.qtyLabel || (ft.unit==='minuti' ? 'Minuti' : 'Numero di oggetti');
+        if(!qtyInput.value || qtyInput.value<1) qtyInput.value=1;
       }
-      // Campo quantità vuoto = 1 (nessun valore predefinito da cancellare a mano)
-      const qty = Math.max(1, parseInt(qtyInput.value||'1',10) || 1);
+      const qty = Math.max(1, parseInt(qtyInput.value||'1',10));
       const player = playerById(playerSel.value);
       let total = ft.amount*qty;
       if(matchdayCheckbox.checked) total *= 2;
@@ -685,7 +670,7 @@
       doubledNote.style.display = (player && player.senato) ? '' : 'none';
       matchdayNote.style.display = matchdayCheckbox.checked ? '' : 'none';
     }
-    typeSel.onchange = ()=>{ qtyInput.value = ''; updatePreview(); };
+    typeSel.onchange = updatePreview;
     qtyInput.oninput = updatePreview;
     playerSel.onchange = updatePreview;
     matchdayCheckbox.onchange = updatePreview;
@@ -709,7 +694,7 @@
         render();
         return;
       }
-      const qty = ft.unit==='fisso' ? 1 : Math.max(1, parseInt(chosenQtyRaw||'1',10) || 1);
+      const qty = ft.unit==='fisso' ? 1 : Math.max(1, parseInt(chosenQtyRaw||'1',10));
       const base = ft.amount*qty;
       const record = {
         id: uid(),
@@ -1288,8 +1273,6 @@
   (async function boot(){
     setRoundFavicon();
     STATE = await loadState();
-    // Se la migrazione ha modificato il tariffario, la salvo subito sul cloud
-    if(STATE && STATE.__migrated){ await saveState(); }
     subscribeRealtime();
     render();
   })();
