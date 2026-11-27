@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <!-- Supabase Client JS SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style> 
+<style>
   :root{
     --paper:#0f172a;
     --paper-card:#1e293b;
@@ -152,6 +152,16 @@
   .team-total-banner{background:var(--ink);color:var(--paper-card);border-radius:5px;padding:16px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;}
   .team-total-banner .ttl{font-size:0.78rem;text-transform:uppercase;letter-spacing:0.1em;opacity:0.75;}
   .team-total-banner .tval{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:700;color:var(--gold-soft);}
+  .stats-row{display:flex;gap:12px;margin-bottom:22px;flex-wrap:wrap;}
+  .stat-box{flex:1;min-width:140px;background:var(--paper);border:1px solid var(--line);border-radius:5px;padding:14px 16px;}
+  .stat-box .stitle{display:block;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-faint);margin-bottom:4px;}
+  .stat-box .sval{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:1.2rem;}
+  .stat-box .sval.red{color:var(--red);}
+
+  .expense-form{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:16px 0 18px;margin-bottom:6px;border-bottom:1px dashed var(--line);}
+  .expense-form .field{margin-bottom:0;}
+  .expense-form .e-amount{flex:0 0 120px;}
+  .expense-form .e-reason{flex:1;min-width:200px;}
 
   .settings-block{padding:18px 0;border-top:1px dashed var(--line);}
   .settings-block:first-of-type{border-top:none;padding-top:0;}
@@ -224,8 +234,10 @@
     {id:'abbigliamento_all', label:"Dimenticanza di abbigliamento/attrezzatura per l'allenamento", unit:'oggetti', amount:1, matchOnly:false},
     {id:'cavolata', label:'Grande cavolata a discrezione del Senato', unit:'fisso', amount:2, matchOnly:false},
     {id:'altre_sanzioni', label:'Altre sanzioni indicate dal Senato (stizza, cellulare, ecc.)', unit:'fisso', amount:2, matchOnly:false},
+    {id:'arroganza', label:'Arroganza', unit:'fisso', amount:2, matchOnly:false},
+    {id:'pulizia', label:'Pulizia (quando si mangia ognuno deve mettere via il suo piatto)', unit:'fisso', amount:2, matchOnly:false},
     {id:'spogliatoio', label:'Condotta negli spogliatoi e igiene (niente doccia)', unit:'fisso', amount:2, matchOnly:false},
-    {id:'telefono', label:'Utilizzo del telefono (ogni sguardo allo schermo)', unit:'minuti', amount:1, matchOnly:false, qtyLabel:'Minuti consecutivi di utilizzo (lascia 1 per un semplice sguardo)'},
+    {id:'telefono', label:'Utilizzo del telefono (ogni sguardo allo schermo)', unit:'minuti', amount:1, matchOnly:false, qtyLabel:'Minuti consecutivi di utilizzo (lascia vuoto per un semplice sguardo)'},
     {id:'documento', label:'Dimenticanza documento', unit:'fisso', amount:5, matchOnly:true},
     {id:'abbigliamento_partita', label:'Abbigliamento sbagliato', unit:'oggetti', amount:2, matchOnly:true},
     {id:'battuta_rete', label:'Battuta sotto rete', unit:'fisso', amount:2, matchOnly:true},
@@ -240,8 +252,60 @@
       players:[],
       fineTypes: DEFAULT_FINE_TYPES,
       records:[],
-      nextProtocollo:1
+      payments:[],
+      expenses:[],
+      nextProtocollo:1,
+      migrations:{ v2_pulizia_arroganza:true }
     };
+  }
+
+  // Garantisce che gli array opzionali esistano anche per dati salvati prima di certe modifiche
+  function ensureArrays(s){
+    if(!s) return s;
+    if(!Array.isArray(s.payments)) s.payments = [];
+    if(!Array.isArray(s.expenses)) s.expenses = [];
+    if(!Array.isArray(s.fineTypes)) s.fineTypes = DEFAULT_FINE_TYPES.map(f=>Object.assign({}, f));
+    migrateState(s);
+    return s;
+  }
+
+  // Migrazione una tantum per i dati già salvati nel cloud:
+  //  - toglie "arroganza" dalla descrizione di "Altre sanzioni del Senato"
+  //  - aggiunge le multe "Arroganza" (2 €) e "Pulizia" (2 €) se non esistono
+  // Viene eseguita una sola volta (flag in s.migrations), quindi se in futuro
+  // rimuovi queste multe dal tariffario non verranno riaggiunte.
+  function migrateState(s){
+    if(!s.migrations || typeof s.migrations !== 'object') s.migrations = {};
+    if(s.migrations.v2_pulizia_arroganza) return;
+
+    const altre = s.fineTypes.find(f=>f.id==='altre_sanzioni');
+    if(altre && /arroganza/i.test(altre.label)){
+      altre.label = altre.label
+        .replace(/arroganza\s*,\s*/i, '')
+        .replace(/\s*,\s*arroganza/i, '')
+        .replace(/\s*arroganza\s*/i, ' ')
+        .replace(/\(\s+/g, '(')
+        .replace(/\s+\)/g, ')')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    }
+
+    const insertAfter = (afterId, type)=>{
+      if(s.fineTypes.some(f=>f.id===type.id)) return;
+      const idx = s.fineTypes.findIndex(f=>f.id===afterId);
+      if(idx>=0) s.fineTypes.splice(idx+1, 0, type);
+      else s.fineTypes.push(type);
+    };
+    insertAfter('altre_sanzioni', {id:'arroganza', label:'Arroganza', unit:'fisso', amount:2, matchOnly:false});
+    insertAfter('arroganza', {id:'pulizia', label:'Pulizia (quando si mangia ognuno deve mettere via il suo piatto)', unit:'fisso', amount:2, matchOnly:false});
+
+    const tel = s.fineTypes.find(f=>f.id==='telefono');
+    if(tel && tel.qtyLabel && /lascia 1 per/i.test(tel.qtyLabel)){
+      tel.qtyLabel = tel.qtyLabel.replace(/lascia 1 per/i, 'lascia vuoto per');
+    }
+
+    s.migrations.v2_pulizia_arroganza = true;
+    s.__migrated = true; // segnala a boot() che va salvato
   }
 
   let STATE = null;
@@ -259,7 +323,7 @@
         await _supabase.from('registro').upsert({ id: 'app_state', data: def });
         return def;
       }
-      return data.data;
+      return ensureArrays(data.data);
     }catch(e){
       console.error('Errore lettura Cloud', e);
       return defaultState();
@@ -268,6 +332,7 @@
 
   async function saveState(){
     try{
+      if(STATE && STATE.__migrated) delete STATE.__migrated;
       await _supabase.from('registro').upsert({ id: 'app_state', data: STATE });
     }catch(e){
       console.error('Errore salvataggio Cloud', e);
@@ -280,7 +345,7 @@
     _supabase.channel('public:registro')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'registro', filter: 'id=eq.app_state' }, payload => {
         if(payload.new && payload.new.data && Object.keys(payload.new.data).length){
-          STATE = payload.new.data;
+          STATE = ensureArrays(payload.new.data);
           render();
         }
       })
@@ -314,13 +379,26 @@
     return STATE.records.filter(r=>r.playerId===playerId).reduce((s,r)=>s+recordAmounts(r).total, 0);
   }
 
+  function playerPaid(playerId){
+    return STATE.payments.filter(v=>v.playerId===playerId).reduce((s,v)=>s+v.amount, 0);
+  }
+
+  function playerBalance(playerId){
+    return playerTotal(playerId) - playerPaid(playerId);
+  }
+
+  // Totale delle spese sostenute con i soldi della cassa
+  function totalSpent(){
+    return STATE.expenses.reduce((s,e)=>s+e.amount, 0);
+  }
+
   // Ricarica lo stato più recente dal cloud PRIMA di applicare una modifica, così due schede
   // aperte insieme non si sovrascrivono a vicenda (causa più probabile di una multa "sparita").
   async function refreshState(){
     try{
       const { data, error } = await _supabase.from('registro').select('data').eq('id', 'app_state').single();
       if(!error && data && data.data && Object.keys(data.data).length){
-        STATE = data.data;
+        STATE = ensureArrays(data.data);
       }
     }catch(e){ console.error('Errore aggiornamento stato pre-salvataggio', e); }
   }
@@ -373,6 +451,7 @@
       ...(isAdmin ? [{id:'registra', label:'Registra Multa'}] : []),
       {id:'storico', label:'Storico'},
       {id:'classifica', label:'Classifica'},
+      {id:'versamenti', label:'Versamenti'},
       ...(isAdmin ? [{id:'impostazioni', label:'Impostazioni'}] : []),
     ];
     return `
@@ -409,6 +488,7 @@
       case 'registra': return renderRegistra();
       case 'storico': return renderStorico();
       case 'classifica': return renderClassifica();
+      case 'versamenti': return renderVersamenti();
       case 'impostazioni': return renderImpostazioni();
       default: return '';
     }
@@ -420,6 +500,7 @@
       case 'registra': return bindRegistra();
       case 'storico': return bindStorico();
       case 'classifica': return bindClassifica();
+      case 'versamenti': return bindVersamenti();
       case 'impostazioni': return bindImpostazioni();
     }
   }
@@ -548,7 +629,7 @@
       </div>
       <div class="field" id="f-qty-wrap">
         <label id="f-qty-label">Quantità</label>
-        <input type="number" id="f-qty" min="1" step="1" value="1">
+        <input type="number" id="f-qty" min="1" step="1" value="" placeholder="1">
       </div>
       <div class="checkbox-field" style="margin-bottom:14px;">
         <input type="checkbox" id="f-matchday-double">
@@ -590,13 +671,12 @@
       if(!ft) return;
       if(ft.unit==='fisso'){
         qtyWrap.style.display='none';
-        qtyInput.value=1;
       } else {
         qtyWrap.style.display='';
         qtyLabel.textContent = ft.qtyLabel || (ft.unit==='minuti' ? 'Minuti' : 'Numero di oggetti');
-        if(!qtyInput.value || qtyInput.value<1) qtyInput.value=1;
       }
-      const qty = Math.max(1, parseInt(qtyInput.value||'1',10));
+      // Campo quantità vuoto = 1 (nessun valore predefinito da cancellare a mano)
+      const qty = Math.max(1, parseInt(qtyInput.value||'1',10) || 1);
       const player = playerById(playerSel.value);
       let total = ft.amount*qty;
       if(matchdayCheckbox.checked) total *= 2;
@@ -605,7 +685,7 @@
       doubledNote.style.display = (player && player.senato) ? '' : 'none';
       matchdayNote.style.display = matchdayCheckbox.checked ? '' : 'none';
     }
-    typeSel.onchange = updatePreview;
+    typeSel.onchange = ()=>{ qtyInput.value = ''; updatePreview(); };
     qtyInput.oninput = updatePreview;
     playerSel.onchange = updatePreview;
     matchdayCheckbox.onchange = updatePreview;
@@ -629,7 +709,7 @@
         render();
         return;
       }
-      const qty = ft.unit==='fisso' ? 1 : Math.max(1, parseInt(chosenQtyRaw||'1',10));
+      const qty = ft.unit==='fisso' ? 1 : Math.max(1, parseInt(chosenQtyRaw||'1',10) || 1);
       const base = ft.amount*qty;
       const record = {
         id: uid(),
@@ -765,6 +845,147 @@
     `;
   }
   function bindClassifica(){}
+
+  function renderVersamenti(){
+    const isAdmin = ROLE==='senato';
+    const totals = STATE.players.map(p=>({
+      p,
+      total: playerTotal(p.id),
+      paid: playerPaid(p.id),
+      balance: playerBalance(p.id)
+    }));
+    const grandTotal = totals.reduce((s,t)=>s+t.total,0);
+    const grandPaid = totals.reduce((s,t)=>s+t.paid,0);
+    const grandBalance = grandTotal - grandPaid;
+    const grandSpent = totalSpent();
+    const available = grandPaid - grandSpent;
+
+    const rows = totals.map(t=>`
+      <div class="player-row">
+        <div class="player-main">
+          <div class="avatar">${escapeHtml(initials(t.p.name))}</div>
+          <div class="player-info">
+            <div class="pname">${escapeHtml(t.p.name)}</div>
+            <div class="pnum">Multe: ${euro(t.total)} · Versato: ${euro(t.paid)}</div>
+          </div>
+          <div class="player-total ${t.balance>0?'amt red':''}">${euro(t.balance)}</div>
+        </div>
+        ${isAdmin ? `<div class="player-admin-controls">
+          <button class="small gold" data-add-payment="${t.p.id}">Registra versamento</button>
+        </div>` : ''}
+      </div>`).join('');
+
+    const paymentRows = STATE.payments.slice().sort((a,b)=> new Date(b.date)-new Date(a.date)).map(v=>{
+      const p = playerById(v.playerId);
+      return `<tr>
+        <td data-label="Giocatore">${p? escapeHtml(p.name) : '<em>rimosso</em>'}</td>
+        <td class="note-cell" data-label="Nota">${v.note? escapeHtml(v.note) : '—'}</td>
+        <td data-label="Data">${new Date(v.date).toLocaleDateString('it-IT')}</td>
+        <td class="num amt" data-label="Importo">${euro(v.amount)}</td>
+        ${isAdmin? `<td data-label="" style="text-align:right;"><button class="small secondary" data-del-payment="${v.id}">Elimina</button></td>` : ''}
+      </tr>`;
+    }).join('');
+
+    const expenseRows = STATE.expenses.slice().sort((a,b)=> new Date(b.date)-new Date(a.date)).map(e=>`
+      <tr>
+        <td data-label="Motivo">${escapeHtml(e.reason)}</td>
+        <td data-label="Data">${new Date(e.date).toLocaleDateString('it-IT')}</td>
+        <td class="num amt red" data-label="Importo">${euro(e.amount)}</td>
+        ${isAdmin? `<td data-label="" style="text-align:right;"><button class="small secondary" data-del-expense="${e.id}">Elimina</button></td>` : ''}
+      </tr>`).join('');
+
+    return `
+      <h2>Versamenti</h2>
+      <p class="panel-desc">La cassa viene raccolta a scadenze non fisse: qui trovi quanto ogni giocatore ha già versato e quanto deve ancora dare rispetto al totale delle sue multe.</p>
+      <div class="stats-row">
+        <div class="stat-box"><span class="stitle">Totale multe</span><span class="sval">${euro(grandTotal)}</span></div>
+        <div class="stat-box"><span class="stitle">Totale versato</span><span class="sval">${euro(grandPaid)}</span></div>
+        <div class="stat-box"><span class="stitle">Saldo da versare</span><span class="sval red">${euro(grandBalance)}</span></div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-box"><span class="stitle">Totale speso</span><span class="sval red">${euro(grandSpent)}</span></div>
+        <div class="stat-box"><span class="stitle">Cassa disponibile</span><span class="sval ${available<0?'red':''}">${euro(available)}</span></div>
+      </div>
+      ${totals.length===0 ? `<div class="empty-state">Nessun giocatore registrato.</div>` : rows}
+      ${STATE.payments.length>0 ? `
+      <h3 style="margin-top:26px;">Storico versamenti</h3>
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Giocatore</th><th>Nota</th><th>Data</th><th class="num">Importo</th>${isAdmin?'<th></th>':''}</tr></thead>
+        <tbody>${paymentRows}</tbody>
+      </table>
+      </div>` : ''}
+
+      <h3 style="margin-top:34px;">Spese della cassa</h3>
+      <p class="panel-desc" style="margin-bottom:6px;">Soldi già spesi e motivo della spesa. L'importo viene sottratto dalla cassa disponibile (versato − speso).</p>
+      ${isAdmin ? `
+      <div class="expense-form">
+        <div class="field e-amount"><label>Importo (€)</label><input type="number" id="exp-amount" min="0" step="0.01" placeholder="0,00" class="mono"></div>
+        <div class="field e-reason"><label>Per cosa è stato speso</label><input type="text" id="exp-reason" placeholder="Es. cena di fine stagione, palloni nuovi…"></div>
+        <button id="btn-add-expense" class="gold">Registra spesa</button>
+      </div>` : ''}
+      ${STATE.expenses.length===0 ? `<div class="empty-state">Nessuna spesa registrata.</div>` : `
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Motivo</th><th>Data</th><th class="num">Importo</th>${isAdmin?'<th></th>':''}</tr></thead>
+        <tbody>${expenseRows}</tbody>
+      </table>
+      </div>`}
+    `;
+  }
+
+  function bindVersamenti(){
+    if(ROLE==='senato'){
+      document.querySelectorAll('[data-add-payment]').forEach(btn=>{
+        btn.onclick = async ()=>{
+          const playerId = btn.dataset.addPayment;
+          const p = playerById(playerId);
+          if(!p) return;
+          const value = prompt(`Importo versato da ${p.name}:`);
+          if(value===null) return;
+          const amount = parseFloat(value.replace(',', '.'));
+          if(!Number.isFinite(amount) || amount<=0){ alert('Inserisci un importo valido.'); return; }
+          const note = prompt('Nota (facoltativa), es. "raccolta di ottobre":', '') || '';
+          await refreshState();
+          STATE.payments.unshift({ id: uid(), playerId, amount, note: note.trim(), date: new Date().toISOString() });
+          await saveState();
+          render();
+        };
+      });
+      document.querySelectorAll('[data-del-payment]').forEach(btn=>{
+        btn.onclick = async ()=>{
+          if(!confirm('Eliminare questo versamento?')) return;
+          const id = btn.dataset.delPayment;
+          await refreshState();
+          STATE.payments = STATE.payments.filter(v=>v.id!==id);
+          await saveState();
+          render();
+        };
+      });
+
+      // Spese della cassa
+      document.getElementById('btn-add-expense').onclick = async ()=>{
+        const amount = parseFloat(document.getElementById('exp-amount').value.replace(',', '.'));
+        const reason = document.getElementById('exp-reason').value.trim();
+        if(!Number.isFinite(amount) || amount<=0){ alert('Inserisci un importo valido.'); return; }
+        if(!reason){ alert('Indica per cosa è stato speso.'); return; }
+        await refreshState();
+        STATE.expenses.unshift({ id: uid(), amount, reason, date: new Date().toISOString() });
+        await saveState();
+        render();
+      };
+      document.querySelectorAll('[data-del-expense]').forEach(btn=>{
+        btn.onclick = async ()=>{
+          if(!confirm('Eliminare questa spesa?')) return;
+          const id = btn.dataset.delExpense;
+          await refreshState();
+          STATE.expenses = STATE.expenses.filter(e=>e.id!==id);
+          await saveState();
+          render();
+        };
+      });
+    }
+  }
 
   // Etichetta leggibile per il tipo di multa (usata sia in select che come testo)
   function kindOptionsHtml(selectedUnit){
@@ -1020,7 +1241,7 @@
       if(!file) return;
       try{
         const text = await file.text();
-        STATE = JSON.parse(text);
+        STATE = ensureArrays(JSON.parse(text));
         await saveState();
         render();
       }catch(err){ alert('File non valido.'); }
@@ -1067,6 +1288,8 @@
   (async function boot(){
     setRoundFavicon();
     STATE = await loadState();
+    // Se la migrazione ha modificato il tariffario, la salvo subito sul cloud
+    if(STATE && STATE.__migrated){ await saveState(); }
     subscribeRealtime();
     render();
   })();
